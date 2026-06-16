@@ -303,7 +303,7 @@ app.delete('/api/projects/:id', (req, res) => {
 
 // 4. Solicitações (Tickets)
 app.get('/api/tickets', (req, res) => {
-  const { project_id, role, client_phone } = req.query;
+  const { project_id } = req.query;
 
   let query = `
     SELECT t.*, p.name as project_name, 
@@ -319,12 +319,6 @@ app.get('/api/tickets', (req, res) => {
   if (project_id && project_id !== 'all') {
     conditions.push('t.project_id = ?');
     params.push(project_id);
-  }
-
-  // Se for cliente, exibe apenas os chamados dele
-  if (role === 'client' && client_phone) {
-    conditions.push('t.client_phone = ?');
-    params.push(client_phone);
   }
 
   if (conditions.length > 0) {

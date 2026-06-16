@@ -59,11 +59,13 @@ function showAppScreen() {
   document.getElementById('user-avatar-placeholder').innerText = initial;
   document.getElementById('mobile-avatar-placeholder').innerText = initial;
 
-  // Exibir botão de adicionar projeto apenas para Admin
+  // Exibir/ocultar controles de acordo com o nível de acesso (Admin vs Cliente)
   if (currentUser.role === 'admin') {
     document.getElementById('btn-add-project').classList.remove('hidden');
+    document.getElementById('btn-new-ticket').classList.add('hidden');
   } else {
     document.getElementById('btn-add-project').classList.add('hidden');
+    document.getElementById('btn-new-ticket').classList.remove('hidden');
   }
 
   // Carregar dados iniciais

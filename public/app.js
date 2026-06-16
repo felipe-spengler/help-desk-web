@@ -415,7 +415,57 @@ function renderTicketsList() {
 
     const card = document.createElement('div');
     card.className = 'ticket-card glass-panel';
-    card.onclick = () => openTicketDetails(ticket.id);
+
+    // Suporte a swipe para excluir (apenas Admin no mobile)
+    let startX = 0;
+    let currentX = 0;
+    let swiping = false;
+
+    if (currentUser.role === 'admin') {
+      card.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        currentX = startX;
+        swiping = true;
+        card.style.transition = 'none';
+      }, { passive: true });
+
+      card.addEventListener('touchmove', (e) => {
+        if (!swiping) return;
+        currentX = e.touches[0].clientX;
+        let diffX = currentX - startX;
+        if (diffX < 0) { // Deslizar para a esquerda
+          card.style.transform = `translateX(${diffX}px)`;
+        }
+      }, { passive: true });
+
+      card.addEventListener('touchend', (e) => {
+        if (!swiping) return;
+        swiping = false;
+        card.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        let diffX = currentX - startX;
+        
+        if (diffX < -120) {
+          card.style.transform = 'translateX(-100%)';
+          setTimeout(() => {
+            if (confirm(`Deseja mesmo excluir permanentemente a solicitação "${ticket.title}"?`)) {
+              deleteTicketById(ticket.id);
+            } else {
+              card.style.transform = 'translateX(0)';
+            }
+          }, 100);
+        } else {
+          card.style.transform = 'translateX(0)';
+        }
+      });
+    }
+
+    card.onclick = () => {
+      // Se arrastou para o lado, cancela a abertura do chamado
+      if (currentUser.role === 'admin' && Math.abs(currentX - startX) > 15) {
+        return;
+      }
+      openTicketDetails(ticket.id);
+    };
 
     // Se houver orçamento aguardando aprovação
     let budgetBadge = '';
@@ -773,18 +823,23 @@ function renderBudgetSection(ticket) {
     container.classList.remove('hidden');
     document.getElementById('view-budget-price').innerText = `R$ ${ticket.budget_amount.toFixed(2)}`;
 
-    if (ticket.budget_status === 'Pendente de Aprovação') {
+    if (ticket.budget_status === 'Pendente de Aprovação' || ticket.budget_status === 'Recusado') {
       if (currentUser.role === 'client') {
         clientActions.classList.remove('hidden');
+        if (ticket.budget_status === 'Recusado') {
+          feedbackMsg.classList.remove('hidden');
+          feedbackStatus.innerText = 'Você recusou este orçamento, mas ainda pode aprová-lo:';
+          feedbackStatus.style.color = 'var(--color-red)';
+        }
       } else {
         feedbackMsg.classList.remove('hidden');
-        feedbackStatus.innerText = 'Aguardando aprovação do cliente';
-        feedbackStatus.style.color = 'var(--color-orange)';
+        feedbackStatus.innerText = ticket.budget_status === 'Pendente de Aprovação' ? 'Aguardando aprovação do cliente' : 'Recusado pelo cliente';
+        feedbackStatus.style.color = ticket.budget_status === 'Pendente de Aprovação' ? 'var(--color-orange)' : 'var(--color-red)';
       }
-    } else {
+    } else if (ticket.budget_status === 'Aprovado') {
       feedbackMsg.classList.remove('hidden');
-      feedbackStatus.innerText = ticket.budget_status === 'Aprovado' ? 'Orçamento Aprovado!' : 'Orçamento Recusado';
-      feedbackStatus.style.color = ticket.budget_status === 'Aprovado' ? 'var(--color-green)' : 'var(--color-red)';
+      feedbackStatus.innerText = 'Orçamento Aprovado!';
+      feedbackStatus.style.color = 'var(--color-green)';
     }
   }
 }
@@ -892,6 +947,20 @@ async function adminDeleteTicket() {
     if (!response.ok) throw new Error('Erro ao excluir chamado.');
 
     closeModal('modal-view-ticket');
+    fetchTickets();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Excluir Chamado por ID (Admin Apenas)
+async function deleteTicketById(id) {
+  try {
+    const response = await fetch(`${API_BASE}/api/tickets/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Erro ao excluir chamado.');
     fetchTickets();
   } catch (err) {
     alert(err.message);

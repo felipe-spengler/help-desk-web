@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help Desk - Central de Solicitações</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+
+  <!-- TELA DE LOGIN -->
+  <div id="login-screen" class="login-container">
+    <div class="login-box glass-panel">
+      <div class="login-header">
+        <i class="fa-solid fa-headset brand-icon"></i>
+        <h1>Help Desk</h1>
+        <p>Acesse a central de suporte e solicitações</p>
+      </div>
+
+      <div class="login-tabs">
+        <button id="tab-client" class="login-tab active" onclick="switchLoginTab('client')">Cliente</button>
+        <button id="tab-admin" class="login-tab" onclick="switchLoginTab('admin')">Administrador</button>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <!-- Campo Nome (Apenas para clientes) -->
+        <div class="form-group" id="client-name-group">
+          <label for="login-name">Seu Nome / Empresa</label>
+          <div class="input-icon-wrapper">
+            <i class="fa-regular fa-user input-icon"></i>
+            <input type="text" id="login-name" placeholder="Ex: Felipe - App Esportivo">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="login-password">Senha de Acesso</label>
+          <div class="input-icon-wrapper">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="login-password" placeholder="Digite a senha" required>
+          </div>
+        </div>
+
+        <div id="login-error" class="error-message hidden"></div>
+
+        <button type="submit" class="btn-primary btn-block">
+          Entrar no Painel <i class="fa-solid fa-arrow-right-to-bracket icon-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APLICATIVO PRINCIPAL (PAINEL) -->
+  <div id="app-screen" class="app-layout hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar glass-panel">
+      <div class="sidebar-brand">
+        <i class="fa-solid fa-headset"></i>
+        <span>Help Desk</span>
+      </div>
+
+      <div class="user-profile">
+        <div class="user-avatar" id="user-avatar-placeholder">U</div>
+        <div class="user-info">
+          <span class="user-name" id="display-user-name">Usuário</span>
+          <span class="user-role" id="display-user-role">Cliente</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Navegação</div>
+        <a href="#" class="nav-link active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+
+        <div class="nav-section-title">
+          <span>Projetos</span>
+          <button id="btn-add-project" class="btn-icon-small hidden" onclick="openModal('modal-add-project')" title="Novo Projeto">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+        <div class="project-tabs" id="project-tabs-container">
+          <!-- Gerado dinamicamente via JS -->
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button onclick="handleLogout()" class="btn-logout">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i> Sair da Conta
+        </button>
+      </div>
+    </aside>
+
+    <!-- Conteúdo Principal -->
+    <main class="main-content">
+      <header class="main-header glass-panel">
+        <div class="header-search">
+          <h2 id="current-project-title">Todos os Projetos</h2>
+        </div>
+        <div class="header-actions">
+          <button class="btn-primary" onclick="openCreateTicketModal()">
+            <i class="fa-solid fa-plus icon-left"></i> Nova Solicitação
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard Grid -->
+      <section class="dashboard-stats">
+        <div class="stat-card glass-panel border-all" onclick="filterByStatus('all')">
+          <div class="stat-icon bg-blue"><i class="fa-solid fa-folder-open"></i></div>
+          <div class="stat-data">
+            <span class="stat-value" id="stat-total">0</span>
+            <span class="stat-label">Total Enviado</span>
+          </div>
+        </div>
+
+        <div class="stat-card glass-panel border-pending" onclick="filterByStatus('Pendente')">
+          <div class="stat-icon bg-yellow"><i class="fa-solid fa-hourglass-half"></i></div>
+          <div class="stat-data">
+            <span class="stat-value" id="stat-pending">0</span>
+            <span class="stat-label">Em Análise</span>
+          </div>
+        </div>
+
+        <div class="stat-card glass-panel border-budget" onclick="filterByStatus('Orçamento')">
+          <div class="stat-icon bg-orange"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+          <div class="stat-data">
+            <span class="stat-value" id="stat-budget">0</span>
+            <span class="stat-label">Aguardando Valor</span>
+          </div>
+        </div>
+
+        <div class="stat-card glass-panel border-progress" onclick="filterByStatus('Em Andamento')">
+          <div class="stat-icon bg-purple"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+          <div class="stat-data">
+            <span class="stat-value" id="stat-progress">0</span>
+            <span class="stat-label">Em Andamento</span>
+          </div>
+        </div>
+
+        <div class="stat-card glass-panel border-done" onclick="filterByStatus('Concluído')">
+          <div class="stat-icon bg-green"><i class="fa-solid fa-circle-check"></i></div>
+          <div class="stat-data">
+            <span class="stat-value" id="stat-done">0</span>
+            <span class="stat-label">Concluídos</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Lista de Tickets -->
+      <section class="tickets-section">
+        <div class="section-header">
+          <h3>Solicitações</h3>
+          <div class="filter-controls">
+            <button id="filter-all" class="btn-filter active" onclick="setTicketFilter('all')">Todos</button>
+            <button id="filter-low" class="btn-filter" onclick="setTicketFilter('Baixa')">Prioridade Baixa</button>
+            <button id="filter-medium" class="btn-filter" onclick="setTicketFilter('Média')">Média</button>
+            <button id="filter-high" class="btn-filter" onclick="setTicketFilter('Alta')">Alta</button>
+          </div>
+        </div>
+
+        <div class="tickets-grid" id="tickets-container">
+          <!-- Cards de solicitações gerados dinamicamente -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: NOVA SOLICITAÇÃO -->
+  <div id="modal-new-ticket" class="modal-overlay hidden">
+    <div class="modal-box glass-panel">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-circle-question"></i> Nova Solicitação</h3>
+        <button class="btn-close" onclick="closeModal('modal-new-ticket')">&times;</button>
+      </div>
+      <form id="new-ticket-form" onsubmit="submitTicket(event)">
+        <div class="form-group">
+          <label for="ticket-title">O que precisa ser alterado? (Título curto)</label>
+          <input type="text" id="ticket-title" placeholder="Ex: Ajustar alinhamento da logo no topo" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="ticket-project">Projeto Vinculado</label>
+            <select id="ticket-project" required>
+              <!-- Preenchido via JS -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="ticket-priority">Nível de Prioridade</label>
+            <select id="ticket-priority" required>
+              <option value="Baixa">🟢 Baixa (Ajuste estético simples)</option>
+              <option value="Média" selected>🟡 Média (Impacta levemente o uso)</option>
+              <option value="Alta">🔴 Alta (Impede fluxo ou erro crítico)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="ticket-description">Explique detalhadamente o ajuste</label>
+          <textarea id="ticket-description" rows="4" placeholder="Descreva aqui o que deve ser modificado, links, etc..." required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Anexar Imagens e Vídeos de Exemplo</label>
+          <div class="upload-dropzone" onclick="document.getElementById('ticket-files').click()">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Clique aqui para selecionar fotos ou vídeos</p>
+            <span>Formatos aceitos: PNG, JPG, JPEG, MP4, WEBM</span>
+            <input type="file" id="ticket-files" multiple accept="image/*,video/*" class="hidden" onchange="handleFileSelect(event)">
+          </div>
+          <div class="selected-files-list" id="selected-files-preview"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-new-ticket')">Cancelar</button>
+          <button type="submit" class="btn-primary">Enviar Solicitação <i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALHES DA SOLICITAÇÃO -->
+  <div id="modal-view-ticket" class="modal-overlay hidden">
+    <div class="modal-box glass-panel modal-lg">
+      <div class="modal-header">
+        <span id="view-ticket-project" class="badge-project">Projeto</span>
+        <button class="btn-close" onclick="closeModal('modal-view-ticket')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="ticket-header-details">
+          <h2 id="view-ticket-title">Carregando Título...</h2>
+          <div class="ticket-meta-info">
+            <span><i class="fa-regular fa-user"></i> Autor: <strong id="view-ticket-author">...</strong></span>
+            <span><i class="fa-regular fa-clock"></i> Data: <strong id="view-ticket-date">...</strong></span>
+            <span>Prioridade: <span id="view-ticket-priority-badge" class="badge-priority">Média</span></span>
+            <span>Status: <span id="view-ticket-status-badge" class="badge-status">Pendente</span></span>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="ticket-description-content">
+          <h4>Descrição:</h4>
+          <p id="view-ticket-description">Sem descrição disponível.</p>
+        </div>
+
+        <!-- Galeria de Imagens e Vídeos -->
+        <div class="ticket-attachments-section hidden" id="view-attachments-container">
+          <h4>Arquivos Anexados:</h4>
+          <div class="attachments-grid" id="attachments-gallery">
+            <!-- Anexos renderizados aqui -->
+          </div>
+        </div>
+
+        <!-- Seção de Orçamento / Cobrança extra -->
+        <div class="budget-section glass-panel hidden" id="view-budget-container">
+          <div class="budget-info">
+            <i class="fa-solid fa-hand-holding-dollar budget-icon"></i>
+            <div>
+              <h5>Este ajuste não está incluso no escopo inicial (Item Pago)</h5>
+              <p>O administrador definiu o seguinte valor para esta modificação:</p>
+              <h3 id="view-budget-price">R$ 0,00</h3>
+            </div>
+          </div>
+          <!-- Ações do Orçamento para o CLIENTE -->
+          <div class="budget-actions hidden" id="client-budget-actions">
+            <button class="btn-success" onclick="approveBudget(true)">
+              <i class="fa-solid fa-check icon-left"></i> Aprovar e Executar
+            </button>
+            <button class="btn-danger" onclick="approveBudget(false)">
+              <i class="fa-solid fa-xmark icon-left"></i> Recusar Ajuste
+            </button>
+          </div>
+          <!-- Feedback de aprovação -->
+          <div class="budget-status-message hidden" id="budget-feedback-msg">
+            <p>Status do Orçamento: <strong id="budget-feedback-status">Aprovado</strong></p>
+          </div>
+        </div>
+
+        <!-- AÇÕES DO ADMINISTRADOR -->
+        <div class="admin-controls glass-panel hidden" id="admin-controls-container">
+          <h4>Controles do Administrador</h4>
+          <div class="admin-actions-grid">
+            <div class="form-group">
+              <label for="admin-change-status">Mudar Status Geral</label>
+              <select id="admin-change-status" onchange="adminChangeStatus(event)">
+                <option value="Pendente">Aguardando Análise</option>
+                <option value="Em Análise">Em Análise</option>
+                <option value="Em Andamento">Em Andamento / Aprovada</option>
+                <option value="Concluído">Concluída / Realizada</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="admin-budget-input">Definir Orçamento Extra (R$)</label>
+              <div class="input-inline-btn">
+                <input type="number" id="admin-budget-input" placeholder="Ex: 150.00" min="0" step="0.01">
+                <button class="btn-primary" onclick="adminSubmitBudget()">Definir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADICIONAR PROJETO (Admin Apenas) -->
+  <div id="modal-add-project" class="modal-overlay hidden">
+    <div class="modal-box glass-panel">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-folder-plus"></i> Adicionar Novo Projeto</h3>
+        <button class="btn-close" onclick="closeModal('modal-add-project')">&times;</button>
+      </div>
+      <form id="add-project-form" onsubmit="submitProject(event)">
+        <div class="form-group">
+          <label for="new-project-name">Nome do Projeto</label>
+          <input type="text" id="new-project-name" placeholder="Ex: Plataforma de Vendas" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-add-project')">Cancelar</button>
+          <button type="submit" class="btn-primary">Criar Projeto <i class="fa-solid fa-circle-check"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

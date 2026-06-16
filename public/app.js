@@ -810,7 +810,7 @@ async function adminChangeStatus(event) {
     const response = await fetch(`${API_BASE}/api/tickets/${currentViewingTicket.id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, admin_name: currentUser.clientName })
     });
 
     if (!response.ok) throw new Error('Erro ao alterar status.');
@@ -841,7 +841,7 @@ async function adminSubmitBudget() {
     const response = await fetch(`${API_BASE}/api/tickets/${currentViewingTicket.id}/budget`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ budget_amount: amount })
+      body: JSON.stringify({ budget_amount: amount, admin_name: currentUser.clientName })
     });
 
     if (!response.ok) throw new Error('Erro ao registrar orçamento.');
@@ -870,6 +870,27 @@ async function approveBudget(isApproved) {
     if (!response.ok) throw new Error('Erro ao processar decisão do orçamento.');
 
     alert(`Orçamento ${action.toLowerCase()} com sucesso!`);
+    closeModal('modal-view-ticket');
+    fetchTickets();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Excluir Chamado (Admin Apenas)
+async function adminDeleteTicket() {
+  if (!currentViewingTicket) return;
+  if (!confirm(`Tem certeza que deseja excluir permanentemente a solicitação "${currentViewingTicket.title}"?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/tickets/${currentViewingTicket.id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Erro ao excluir chamado.');
+
     closeModal('modal-view-ticket');
     fetchTickets();
   } catch (err) {

@@ -444,7 +444,7 @@ app.post('/api/tickets', upload.array('files'), (req, res) => {
 // Atualizar Status (Admin)
 app.put('/api/tickets/:id/status', (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; // 'Pendente', 'Em Análise', 'Aprovado', 'Em Andamento', 'Concluído'
+  const { status, admin_name } = req.body; // 'Pendente', 'Em Análise', 'Aprovado', 'Em Andamento', 'Concluído'
 
   // Buscar informações do ticket para enviar notificação
   db.get('SELECT * FROM tickets WHERE id = ?', [id], (err, ticket) => {
@@ -461,7 +461,8 @@ app.put('/api/tickets/:id/status', (req, res) => {
 
       // Notificar cliente
       if (ticket.client_phone) {
-        sendNotification(ticket.client_phone, `🛠️ *Atualização de Status*\n\nSua solicitação "*${ticket.title}*" foi atualizada para o status: *${status}*.\n\nAcompanhe aqui: ${link}`);
+        const byWho = admin_name ? `O administrador *${admin_name}* alterou o status da sua` : `Sua`;
+        sendNotification(ticket.client_phone, `🛠️ *Atualização de Status*\n\n${byWho} solicitação "*${ticket.title}*" para: *${status}*.\n\nAcompanhe aqui: ${link}`);
       }
 
       res.json({ success: true, changes: this.changes });
@@ -472,7 +473,7 @@ app.put('/api/tickets/:id/status', (req, res) => {
 // Definir Orçamento/Valor (Admin)
 app.put('/api/tickets/:id/budget', (req, res) => {
   const { id } = req.params;
-  const { budget_amount } = req.body;
+  const { budget_amount, admin_name } = req.body;
 
   if (budget_amount === undefined || budget_amount < 0) {
     return res.status(400).json({ error: 'Valor do orçamento inválido.' });
@@ -495,7 +496,8 @@ app.put('/api/tickets/:id/budget', (req, res) => {
 
         // Notificar cliente sobre orçamento pendente de aprovação
         if (ticket.client_phone) {
-          sendNotification(ticket.client_phone, `💰 *Orçamento Disponível*\n\nUm orçamento de *R$ ${parseFloat(budget_amount).toFixed(2)}* foi cadastrado para o ajuste "*${ticket.title}*".\n\nPor favor, acesse o painel para aprovar ou recusar: ${link}`);
+          const byWho = admin_name ? `O administrador *${admin_name}* cadastrou` : `Um`;
+          sendNotification(ticket.client_phone, `💰 *Orçamento Disponível*\n\n${byWho} orçamento de *R$ ${parseFloat(budget_amount).toFixed(2)}* para o ajuste "*${ticket.title}*".\n\nPor favor, acesse o painel para aprovar ou recusar: ${link}`);
         }
 
         res.json({ success: true, changes: this.changes });
@@ -537,6 +539,15 @@ app.put('/api/tickets/:id/approve-budget', (req, res) => {
         res.json({ success: true, changes: this.changes });
       }
     );
+  });
+});
+
+// Excluir Solicitação (Admin)
+app.delete('/api/tickets/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM tickets WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, changes: this.changes });
   });
 });
 

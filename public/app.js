@@ -257,18 +257,26 @@ function renderProjectTabs() {
   };
 
   let html = `
-    <button class="project-tab-btn ${activeProjectId === 'all' ? 'active' : ''}" onclick="selectProject('all', 'Todos os Projetos')">
-      <span><i class="fa-solid fa-list-check icon-left"></i> Todos</span>
-      <span class="project-count-badge" id="badge-count-all">${getCount('all')}</span>
-    </button>
+    <div class="project-tab-wrapper ${activeProjectId === 'all' ? 'active' : ''}">
+      <button class="project-tab-btn" onclick="selectProject('all', 'Todos os Projetos')">
+        <span><i class="fa-solid fa-list-check icon-left"></i> Todos</span>
+        <span class="project-count-badge" id="badge-count-all">${getCount('all')}</span>
+      </button>
+    </div>
   `;
 
   projects.forEach(proj => {
+    const deleteBtn = currentUser.role === 'admin'
+      ? `<button class="btn-delete-project-small" onclick="deleteProject(event, ${proj.id}, '${proj.name}')" title="Excluir Projeto"><i class="fa-solid fa-trash-can"></i></button>`
+      : '';
     html += `
-      <button class="project-tab-btn ${activeProjectId == proj.id ? 'active' : ''}" onclick="selectProject(${proj.id}, '${proj.name}')">
-        <span><i class="fa-regular fa-folder icon-left"></i> ${proj.name}</span>
-        <span class="project-count-badge">${getCount(proj.id)}</span>
-      </button>
+      <div class="project-tab-wrapper ${activeProjectId == proj.id ? 'active' : ''}">
+        <button class="project-tab-btn" onclick="selectProject(${proj.id}, '${proj.name}')">
+          <span><i class="fa-regular fa-folder icon-left"></i> ${proj.name}</span>
+          <span class="project-count-badge">${getCount(proj.id)}</span>
+        </button>
+        ${deleteBtn}
+      </div>
     `;
   });
 
@@ -306,7 +314,7 @@ function selectProject(id, name) {
 // Carregar Tickets
 async function fetchTickets() {
   try {
-    const response = await fetch(`${API_BASE}/api/tickets?project_id=${activeProjectId}`);
+    const response = await fetch(`${API_BASE}/api/tickets?project_id=${activeProjectId}&role=${currentUser.role}&client_phone=${currentUser.clientPhone || ''}`);
     tickets = await response.json();
     
     // Atualizar badges de projetos na sidebar
@@ -482,6 +490,33 @@ async function submitProject(event) {
     
     // Recarregar projetos
     await fetchProjects();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Excluir Projeto (Admin)
+async function deleteProject(event, id, name) {
+  event.stopPropagation(); // Evita que clique no projeto selecione ele
+  if (!confirm(`Tem certeza que deseja excluir o projeto "${name}"? Isso também removerá todas as solicitações vinculadas a ele.`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/projects/${id}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) throw new Error('Erro ao excluir projeto.');
+    
+    // Se o projeto excluído era o selecionado, volta para "Todos"
+    if (activeProjectId == id) {
+      activeProjectId = 'all';
+      document.getElementById('current-project-title').innerText = 'Todos os Projetos';
+    }
+    
+    await fetchProjects();
+    await fetchTickets();
   } catch (err) {
     alert(err.message);
   }

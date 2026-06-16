@@ -1043,6 +1043,37 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Project Tab Wrapper Styles */
+.project-tab-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+  width: 100%;
+}
+.project-tab-wrapper.active {
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 2px solid var(--primary);
+}
+.project-tab-wrapper .project-tab-btn {
+  flex-grow: 1;
+  border-left: none !important;
+  background: transparent !important;
+}
+.btn-delete-project-small {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  font-size: 0.85rem;
+  transition: var(--transition);
+}
+.btn-delete-project-small:hover {
+  color: var(--color-red);
+}
+
 /* --- RESPONSIVIDADE (MOBILE E TABLET) --- */
 @media (max-width: 900px) {
   .app-layout {
@@ -1066,14 +1097,37 @@ textarea:focus {
   }
 
   .project-tabs {
+    display: flex;
     flex-direction: row;
     overflow-x: auto;
     max-height: none;
     padding-bottom: 8px;
+    gap: 10px;
   }
 
-  .project-tab-btn {
+  .project-tab-wrapper {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    width: auto;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+  }
+
+  .project-tab-wrapper.active {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    border-left: 1px solid var(--primary);
+  }
+
+  .project-tab-wrapper .project-tab-btn {
+    padding: 6px 12px;
     white-space: nowrap;
+  }
+
+  .btn-delete-project-small {
+    padding: 6px 8px;
   }
 
   .main-content {
@@ -1123,6 +1177,21 @@ textarea:focus {
 
   .section-header h3 {
     font-size: 1rem;
+  }
+
+  /* Modal adaptável para celular */
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-box {
+    max-height: 95vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal-body {
+    padding: 15px;
   }
 }
 

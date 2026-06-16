@@ -175,7 +175,7 @@ db.serialize(() => {
       db.run('INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)', [
         'Administrador',
         'admin',
-        'admin123',
+        'supersenha',
         'admin'
       ]);
       console.log('Usuário administrador padrão inserido.');
@@ -236,7 +236,7 @@ app.post('/api/auth/login', (req, res) => {
   const cleanPhone = phone.trim().toLowerCase();
 
   // Login direto para Admin
-  if (cleanPhone === 'admin' && password === 'admin123') {
+  if (cleanPhone === 'admin' && password === 'supersenha') {
     return res.json({
       success: true,
       role: 'admin',
@@ -292,9 +292,18 @@ app.post('/api/projects', (req, res) => {
   });
 });
 
+// Excluir Projeto
+app.delete('/api/projects/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM projects WHERE id = ?', [id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, changes: this.changes });
+  });
+});
+
 // 4. Solicitações (Tickets)
 app.get('/api/tickets', (req, res) => {
-  const { project_id } = req.query;
+  const { project_id, role, client_phone } = req.query;
 
   let query = `
     SELECT t.*, p.name as project_name, 
@@ -305,9 +314,21 @@ app.get('/api/tickets', (req, res) => {
   `;
 
   const params = [];
+  const conditions = [];
+
   if (project_id && project_id !== 'all') {
-    query += ' WHERE t.project_id = ?';
+    conditions.push('t.project_id = ?');
     params.push(project_id);
+  }
+
+  // Se for cliente, exibe apenas os chamados dele
+  if (role === 'client' && client_phone) {
+    conditions.push('t.client_phone = ?');
+    params.push(client_phone);
+  }
+
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
   }
 
   query += ' ORDER BY t.created_at DESC';

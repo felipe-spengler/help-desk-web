@@ -1,0 +1,15 @@
+services:
+  helpdesk:
+    build: .
+    container_name: helpdesk-web
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+    volumes:
+      - helpdesk-data:/app/data
+    restart: always
+
+volumes:
+  helpdesk-data:

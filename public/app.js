@@ -55,7 +55,9 @@ function showAppScreen() {
   // Atualizar informações do usuário
   document.getElementById('display-user-name').innerText = currentUser.clientName || 'Usuário';
   document.getElementById('display-user-role').innerText = currentUser.role === 'admin' ? 'Administrador' : 'Cliente';
-  document.getElementById('user-avatar-placeholder').innerText = (currentUser.clientName || 'U').charAt(0).toUpperCase();
+  const initial = (currentUser.clientName || 'U').charAt(0).toUpperCase();
+  document.getElementById('user-avatar-placeholder').innerText = initial;
+  document.getElementById('mobile-avatar-placeholder').innerText = initial;
 
   // Exibir botão de adicionar projeto apenas para Admin
   if (currentUser.role === 'admin') {
@@ -66,6 +68,23 @@ function showAppScreen() {
 
   // Carregar dados iniciais
   loadInitialData();
+}
+
+// Controle do Sidebar Mobile
+function toggleSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  
+  sidebar.classList.toggle('active');
+  overlay.classList.toggle('hidden');
+}
+
+function closeSidebarOnMobile() {
+  const sidebar = document.getElementById('app-sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  
+  sidebar.classList.remove('active');
+  overlay.classList.add('hidden');
 }
 
 // Alternar entre abas de Login (Cliente vs Admin)
@@ -309,6 +328,7 @@ function selectProject(id, name) {
   updateFilterButtonsUI();
   
   fetchTickets();
+  closeSidebarOnMobile();
 }
 
 // Carregar Tickets

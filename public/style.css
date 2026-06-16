@@ -1074,60 +1074,161 @@ textarea:focus {
   color: var(--color-red);
 }
 
+/* Overlay de fundo para o Sidebar Mobile */
+.sidebar-overlay-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 90;
+  transition: var(--transition);
+}
+
+.mobile-header {
+  display: none;
+}
+
+.sidebar-mobile-header {
+  display: none;
+}
+
 /* --- RESPONSIVIDADE (MOBILE E TABLET) --- */
 @media (max-width: 900px) {
   .app-layout {
     grid-template-columns: 1fr;
+    padding-top: 65px; /* Altura do header mobile */
   }
 
-  .sidebar {
-    height: auto;
-    position: relative;
+  /* Header Mobile */
+  .mobile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 65px;
+    padding: 0 20px;
+    z-index: 80;
+    border-radius: 0;
+    border-top: none;
+    border-left: none;
     border-right: none;
+    background: rgba(15, 17, 24, 0.9);
+    backdrop-filter: blur(15px);
+  }
+
+  .btn-hamburger {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px;
+  }
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .mobile-user {
+    cursor: pointer;
+  }
+  
+  .mobile-user .user-avatar {
+    width: 35px;
+    height: 35px;
+    font-size: 0.95rem;
+  }
+
+  /* Sidebar Drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 290px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 99;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0;
+    padding: 20px;
+    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+  }
+
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  .sidebar-mobile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
     border-bottom: 1px solid var(--border-color);
-    padding: 15px;
+  }
+
+  .sidebar-mobile-header span {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  .btn-close-sidebar {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.8rem;
+    cursor: pointer;
+    line-height: 1;
   }
 
   .sidebar-brand {
-    margin-bottom: 15px;
+    display: none;
   }
 
   .user-profile {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
   }
 
+  /* Restaurar lista vertical de projetos na barra lateral */
   .project-tabs {
     display: flex;
-    flex-direction: row;
-    overflow-x: auto;
-    max-height: none;
-    padding-bottom: 8px;
-    gap: 10px;
+    flex-direction: column;
+    overflow-x: visible;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-bottom: 0;
+    gap: 4px;
   }
 
   .project-tab-wrapper {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    width: auto;
-    border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
+    width: 100%;
+    background: transparent;
+    border: none;
   }
 
   .project-tab-wrapper.active {
-    background: var(--primary-glow);
-    border-color: var(--primary);
-    border-left: 1px solid var(--primary);
+    background: rgba(255, 255, 255, 0.06);
+    border-left: 2px solid var(--primary);
   }
 
   .project-tab-wrapper .project-tab-btn {
-    padding: 6px 12px;
-    white-space: nowrap;
-  }
-
-  .btn-delete-project-small {
-    padding: 6px 8px;
+    padding: 8px 12px;
   }
 
   .main-content {

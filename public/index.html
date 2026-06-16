@@ -97,8 +97,29 @@
 
   <!-- APLICATIVO PRINCIPAL (PAINEL) -->
   <div id="app-screen" class="app-layout hidden">
+    <!-- Overlay de fundo para o Sidebar Mobile -->
+    <div id="sidebar-overlay" class="sidebar-overlay-bg hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Header Mobile -->
+    <header class="mobile-header glass-panel">
+      <button id="btn-hamburger" class="btn-hamburger" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="mobile-brand">
+        <i class="fa-solid fa-headset"></i>
+        <span>Help Desk</span>
+      </div>
+      <div class="mobile-user" onclick="toggleSidebar()">
+        <div class="user-avatar" id="mobile-avatar-placeholder">U</div>
+      </div>
+    </header>
+
     <!-- Sidebar -->
-    <aside class="sidebar glass-panel">
+    <aside class="sidebar glass-panel" id="app-sidebar">
+      <div class="sidebar-mobile-header">
+        <span>Navegação</span>
+        <button class="btn-close-sidebar" onclick="toggleSidebar()">&times;</button>
+      </div>
       <div class="sidebar-brand">
         <i class="fa-solid fa-headset"></i>
         <span>Help Desk</span>

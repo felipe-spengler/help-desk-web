@@ -103,16 +103,39 @@ function sendNotification(to, message) {
   req.end();
 }
 
-function notifyAdmins(message) {
-  db.all('SELECT phone FROM users WHERE role = "admin"', [], (err, rows) => {
-    const adminPhones = new Set([ADMIN_PHONE]);
+function notifyAdmins(message, eventType) {
+  db.all('SELECT phone, notification_preferences FROM users WHERE role = "admin"', [], (err, rows) => {
+    const adminPhones = new Set();
+    
     if (!err && rows) {
       rows.forEach(row => {
-        const clean = row.phone.replace(/\D/g, '');
-        if (clean.length >= 10) {
-          adminPhones.add(clean);
+        let prefs = {};
+        if (row.notification_preferences) {
+          try {
+            prefs = JSON.parse(row.notification_preferences);
+          } catch (e) {}
+        }
+        
+        // Se a preferência correspondente for falsa, não adiciona
+        const wantsNotification = eventType === 'admin_new' 
+          ? (prefs.admin_new !== false) 
+          : (prefs.admin_budget !== false);
+          
+        if (wantsNotification) {
+          const clean = row.phone.replace(/\D/g, '');
+          if (clean.length >= 10) {
+            adminPhones.add(clean);
+          } else if (row.phone === 'admin') {
+            // Se for o admin principal (sem telefone numérico no banco), usamos o ADMIN_PHONE padrão
+            adminPhones.add(ADMIN_PHONE.replace(/\D/g, ''));
+          }
         }
       });
+    }
+    
+    // Fallback: se nenhum administrador estiver cadastrado no banco ainda
+    if (adminPhones.size === 0 && (!rows || rows.length === 0)) {
+      adminPhones.add(ADMIN_PHONE.replace(/\D/g, ''));
     }
     
     adminPhones.forEach(phone => {
@@ -120,6 +143,31 @@ function notifyAdmins(message) {
     });
   });
 }
+
+function sendClientNotification(phone, message, eventType) {
+  if (!phone) return;
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  db.get('SELECT notification_preferences FROM users WHERE phone = ?', [cleanPhone], (err, row) => {
+    let wantsNotification = true;
+    if (!err && row && row.notification_preferences) {
+      try {
+        const prefs = JSON.parse(row.notification_preferences);
+        if (eventType === 'client_status' && prefs.client_status === false) {
+          wantsNotification = false;
+        } else if (eventType === 'client_budget' && prefs.client_budget === false) {
+          wantsNotification = false;
+        }
+      } catch (e) {}
+    }
+    if (wantsNotification) {
+      sendNotification(cleanPhone, message);
+    } else {
+      console.log(`Notificação do tipo ${eventType} silenciada para o cliente ${cleanPhone} conforme suas preferências.`);
+    }
+  });
+}
+
 
 // Criar Tabelas
 db.serialize(() => {
@@ -164,6 +212,12 @@ db.serialize(() => {
   db.run("ALTER TABLE tickets ADD COLUMN client_phone TEXT", (err) => {
     // Ignora silenciosamente se a coluna já existe
   });
+
+  // Adicionar coluna notification_preferences se ela não existir
+  db.run("ALTER TABLE users ADD COLUMN notification_preferences TEXT", (err) => {
+    // Ignora silenciosamente se a coluna já existe
+  });
+
 
   // Tabela de Anexos
   db.run(`
@@ -323,6 +377,57 @@ app.post('/api/auth/login', (req, res) => {
   );
 });
 
+// Configurações de Notificação do Usuário
+app.get('/api/users/settings', (req, res) => {
+  const { phone, role } = req.query;
+  
+  const queryPhone = (phone && phone.trim() !== '') ? phone.replace(/\D/g, '') : 'admin';
+
+  db.get('SELECT notification_preferences, role FROM users WHERE phone = ?', [queryPhone], (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    let prefs = {};
+    if (user && user.notification_preferences) {
+      try {
+        prefs = JSON.parse(user.notification_preferences);
+      } catch (e) {
+        prefs = {};
+      }
+    }
+    
+    const userRole = user ? user.role : role;
+
+    // Preferências padrão dependendo da role
+    const defaultPrefs = userRole === 'admin' ? {
+      admin_new: true,
+      admin_budget: true
+    } : {
+      client_status: true,
+      client_budget: true
+    };
+
+    // Mesclar preferências
+    const finalPrefs = { ...defaultPrefs, ...prefs };
+    res.json(finalPrefs);
+  });
+});
+
+app.post('/api/users/settings', (req, res) => {
+  const { phone, role, settings } = req.body;
+
+  const queryPhone = (phone && phone.trim() !== '') ? phone.replace(/\D/g, '') : 'admin';
+  const settingsStr = JSON.stringify(settings);
+
+  db.run('UPDATE users SET notification_preferences = ? WHERE phone = ?', [settingsStr, queryPhone], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ success: true });
+  });
+});
+
 // 3. Projetos
 app.get('/api/projects', (req, res) => {
   db.all('SELECT * FROM projects ORDER BY name ASC', [], (err, rows) => {
@@ -435,7 +540,7 @@ app.post('/api/tickets', upload.array('files'), (req, res) => {
     const link = `${protocol}://${host}/#ticket-${ticketId}`;
 
     // Notificar administradores
-    notifyAdmins(`📢 *Nova Solicitação*\n\n*Cliente:* ${client_name}\n*Título:* ${title}\n*Prioridade:* ${priority || 'Média'}\n\nAcessar: ${link}`);
+    notifyAdmins(`📢 *Nova Solicitação*\n\n*Cliente:* ${client_name}\n*Título:* ${title}\n*Prioridade:* ${priority || 'Média'}\n\nAcessar: ${link}`, 'admin_new');
 
     res.json({ success: true, ticketId });
   });
@@ -462,7 +567,7 @@ app.put('/api/tickets/:id/status', (req, res) => {
       // Notificar cliente
       if (ticket.client_phone) {
         const byWho = admin_name ? `O administrador *${admin_name}* alterou o status da sua` : `Sua`;
-        sendNotification(ticket.client_phone, `🛠️ *Atualização de Status*\n\n${byWho} solicitação "*${ticket.title}*" para: *${status}*.\n\nAcompanhe aqui: ${link}`);
+        sendClientNotification(ticket.client_phone, `🛠️ *Atualização de Status*\n\n${byWho} solicitação "*${ticket.title}*" para: *${status}*.\n\nAcompanhe aqui: ${link}`, 'client_status');
       }
 
       res.json({ success: true, changes: this.changes });
@@ -497,7 +602,7 @@ app.put('/api/tickets/:id/budget', (req, res) => {
         // Notificar cliente sobre orçamento pendente de aprovação
         if (ticket.client_phone) {
           const byWho = admin_name ? `O administrador *${admin_name}* cadastrou` : `Um`;
-          sendNotification(ticket.client_phone, `💰 *Orçamento Disponível*\n\n${byWho} orçamento de *R$ ${parseFloat(budget_amount).toFixed(2)}* para o ajuste "*${ticket.title}*".\n\nPor favor, acesse o painel para aprovar ou recusar: ${link}`);
+          sendClientNotification(ticket.client_phone, `💰 *Orçamento Disponível*\n\n${byWho} orçamento de *R$ ${parseFloat(budget_amount).toFixed(2)}* para o ajuste "*${ticket.title}*".\n\nPor favor, acesse o painel para aprovar ou recusar: ${link}`, 'client_budget');
         }
 
         res.json({ success: true, changes: this.changes });
@@ -534,7 +639,7 @@ app.put('/api/tickets/:id/approve-budget', (req, res) => {
 
         // Notificar administradores sobre a resposta do orçamento
         const statusEmoji = action === 'Aprovado' ? '✅' : '❌';
-        notifyAdmins(`${statusEmoji} *Orçamento ${action}*\n\nO cliente ${ticket.client_name} *${action.toLowerCase()}* o orçamento de *R$ ${parseFloat(ticket.budget_amount).toFixed(2)}* para a solicitação "*${ticket.title}*".\n\nAcesse para ver: ${link}`);
+        notifyAdmins(`${statusEmoji} *Orçamento ${action}*\n\nO cliente ${ticket.client_name} *${action.toLowerCase()}* o orçamento de *R$ ${parseFloat(ticket.budget_amount).toFixed(2)}* para a solicitação "*${ticket.title}*".\n\nAcesse para ver: ${link}`, 'admin_budget');
 
         res.json({ success: true, changes: this.changes });
       }

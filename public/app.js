@@ -966,3 +966,75 @@ async function deleteTicketById(id) {
     alert(err.message);
   }
 }
+
+// --- CONFIGURAÇÕES DE NOTIFICAÇÃO (WHATSAPP) ---
+async function openSettingsModal() {
+  openModal('modal-settings');
+  
+  const clientGroup = document.getElementById('client-settings-group');
+  const adminGroup = document.getElementById('admin-settings-group');
+  
+  if (currentUser.role === 'admin') {
+    clientGroup.classList.add('hidden');
+    adminGroup.classList.remove('hidden');
+  } else {
+    clientGroup.classList.remove('hidden');
+    adminGroup.classList.add('hidden');
+  }
+  
+  try {
+    const phoneParam = currentUser.clientPhone || 'admin';
+    const response = await fetch(`${API_BASE}/api/users/settings?phone=${phoneParam}&role=${currentUser.role}`);
+    if (!response.ok) throw new Error('Erro ao buscar configurações.');
+    
+    const prefs = await response.json();
+    
+    if (currentUser.role === 'admin') {
+      document.getElementById('setting-admin-new').checked = prefs.admin_new !== false;
+      document.getElementById('setting-admin-budget').checked = prefs.admin_budget !== false;
+    } else {
+      document.getElementById('setting-client-status').checked = prefs.client_status !== false;
+      document.getElementById('setting-client-budget').checked = prefs.client_budget !== false;
+    }
+  } catch (err) {
+    console.error('Erro ao carregar preferências de notificação:', err);
+  }
+}
+
+async function saveNotificationSettings(event) {
+  event.preventDefault();
+  
+  let settings = {};
+  if (currentUser.role === 'admin') {
+    settings = {
+      admin_new: document.getElementById('setting-admin-new').checked,
+      admin_budget: document.getElementById('setting-admin-budget').checked
+    };
+  } else {
+    settings = {
+      client_status: document.getElementById('setting-client-status').checked,
+      client_budget: document.getElementById('setting-client-budget').checked
+    };
+  }
+  
+  try {
+    const phoneParam = currentUser.clientPhone || 'admin';
+    const response = await fetch(`${API_BASE}/api/users/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: phoneParam,
+        role: currentUser.role,
+        settings
+      })
+    });
+    
+    if (!response.ok) throw new Error('Erro ao salvar configurações de notificação.');
+    
+    alert('Configurações de notificação salvas com sucesso!');
+    closeModal('modal-settings');
+  } catch (err) {
+    alert(err.message);
+  }
+}
+

@@ -12,8 +12,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Garantir diretório de uploads
-const uploadsDir = path.join(__dirname, 'uploads');
+// Garantir diretório de dados persistentes para SQLite e uploads
+const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const uploadsDir = path.join(dataDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -38,7 +43,7 @@ const upload = multer({
 });
 
 // Inicializar banco de dados SQLite
-const dbPath = path.join(__dirname, 'database.sqlite');
+const dbPath = path.join(dataDir, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Erro ao conectar ao SQLite:', err.message);

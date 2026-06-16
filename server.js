@@ -103,6 +103,24 @@ function sendNotification(to, message) {
   req.end();
 }
 
+function notifyAdmins(message) {
+  db.all('SELECT phone FROM users WHERE role = "admin"', [], (err, rows) => {
+    const adminPhones = new Set([ADMIN_PHONE]);
+    if (!err && rows) {
+      rows.forEach(row => {
+        const clean = row.phone.replace(/\D/g, '');
+        if (clean.length >= 10) {
+          adminPhones.add(clean);
+        }
+      });
+    }
+    
+    adminPhones.forEach(phone => {
+      sendNotification(phone, message);
+    });
+  });
+}
+
 // Criar Tabelas
 db.serialize(() => {
   // Tabela de Projetos
@@ -220,6 +238,43 @@ app.post('/api/auth/register', (req, res) => {
         clientName: name.trim(),
         clientPhone: cleanPhone,
         token: 'token-client-' + userId + '-' + Date.now()
+      });
+    }
+  );
+});
+
+// Registro de Administrador (Admin apenas pode cadastrar outros admins)
+app.post('/api/auth/register-admin', (req, res) => {
+  const { name, phone, password } = req.body;
+
+  if (!name || !phone || !password) {
+    return res.status(400).json({ success: false, message: 'Nome, telefone e senha são obrigatórios.' });
+  }
+
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length < 10) {
+    return res.status(400).json({ success: false, message: 'Por favor, insira um telefone válido com DDD.' });
+  }
+
+  db.run(
+    'INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, "admin")',
+    [name.trim(), cleanPhone, password],
+    function (err) {
+      if (err) {
+        if (err.message.includes('UNIQUE')) {
+          return res.status(400).json({ success: false, message: 'Este número de telefone já está cadastrado.' });
+        }
+        return res.status(500).json({ success: false, message: err.message });
+      }
+
+      const userId = this.lastID;
+
+      // Notificar o novo administrador
+      sendNotification(cleanPhone, `Olá, ${name.trim()}! Você foi cadastrado como Administrador no Help Desk. Acesse o painel usando seu telefone e senha cadastrada.`);
+
+      res.json({
+        success: true,
+        userId
       });
     }
   );
@@ -379,8 +434,8 @@ app.post('/api/tickets', upload.array('files'), (req, res) => {
     const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';
     const link = `${protocol}://${host}/#ticket-${ticketId}`;
 
-    // Notificar administrador
-    sendNotification(ADMIN_PHONE, `📢 *Nova Solicitação*\n\n*Cliente:* ${client_name}\n*Título:* ${title}\n*Prioridade:* ${priority || 'Média'}\n\nAcessar: ${link}`);
+    // Notificar administradores
+    notifyAdmins(`📢 *Nova Solicitação*\n\n*Cliente:* ${client_name}\n*Título:* ${title}\n*Prioridade:* ${priority || 'Média'}\n\nAcessar: ${link}`);
 
     res.json({ success: true, ticketId });
   });
@@ -475,9 +530,9 @@ app.put('/api/tickets/:id/approve-budget', (req, res) => {
         const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';
         const link = `${protocol}://${host}/#ticket-${id}`;
 
-        // Notificar administrador sobre a resposta do orçamento
+        // Notificar administradores sobre a resposta do orçamento
         const statusEmoji = action === 'Aprovado' ? '✅' : '❌';
-        sendNotification(ADMIN_PHONE, `${statusEmoji} *Orçamento ${action}*\n\nO cliente ${ticket.client_name} *${action.toLowerCase()}* o orçamento de *R$ ${parseFloat(ticket.budget_amount).toFixed(2)}* para a solicitação "*${ticket.title}*".\n\nAcesse para ver: ${link}`);
+        notifyAdmins(`${statusEmoji} *Orçamento ${action}*\n\nO cliente ${ticket.client_name} *${action.toLowerCase()}* o orçamento de *R$ ${parseFloat(ticket.budget_amount).toFixed(2)}* para a solicitação "*${ticket.title}*".\n\nAcesse para ver: ${link}`);
 
         res.json({ success: true, changes: this.changes });
       }

@@ -63,9 +63,11 @@ function showAppScreen() {
   if (currentUser.role === 'admin') {
     document.getElementById('btn-add-project').classList.remove('hidden');
     document.getElementById('btn-new-ticket').classList.add('hidden');
+    document.getElementById('admin-section-title').style.display = 'flex';
   } else {
     document.getElementById('btn-add-project').classList.add('hidden');
     document.getElementById('btn-new-ticket').classList.remove('hidden');
+    document.getElementById('admin-section-title').style.display = 'none';
   }
 
   // Carregar dados iniciais
@@ -512,6 +514,35 @@ async function submitProject(event) {
     
     // Recarregar projetos
     await fetchProjects();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Cadastrar Novo Administrador (Admin)
+async function submitAdmin(event) {
+  event.preventDefault();
+  const name = document.getElementById('new-admin-name').value;
+  const phone = document.getElementById('new-admin-phone').value;
+  const password = document.getElementById('new-admin-password').value;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/register-admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, password })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Erro ao cadastrar administrador.');
+
+    alert(`Administrador "${name}" cadastrado com sucesso!`);
+    closeModal('modal-add-admin');
+    
+    // Limpar formulário
+    document.getElementById('new-admin-name').value = '';
+    document.getElementById('new-admin-phone').value = '';
+    document.getElementById('new-admin-password').value = '';
   } catch (err) {
     alert(err.message);
   }

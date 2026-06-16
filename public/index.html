@@ -146,6 +146,13 @@
         <div class="project-tabs" id="project-tabs-container">
           <!-- Gerado dinamicamente via JS -->
         </div>
+
+        <div class="nav-section-title id-admin-only" id="admin-section-title" style="display: none; justify-content: space-between; align-items: center; margin-top: 15px;">
+          <span>Equipe Admin</span>
+          <button id="btn-add-admin-trigger" class="btn-icon-small" onclick="openModal('modal-add-admin')" title="Novo Administrador">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -385,6 +392,34 @@
         <div class="modal-footer">
           <button type="button" class="btn-secondary" onclick="closeModal('modal-add-project')">Cancelar</button>
           <button type="submit" class="btn-primary">Criar Projeto <i class="fa-solid fa-circle-check"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADICIONAR ADMIN (Admin Apenas) -->
+  <div id="modal-add-admin" class="modal-overlay hidden">
+    <div class="modal-box glass-panel">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-shield"></i> Adicionar Novo Administrador</h3>
+        <button class="btn-close" onclick="closeModal('modal-add-admin')">&times;</button>
+      </div>
+      <form id="add-admin-form" onsubmit="submitAdmin(event)">
+        <div class="form-group">
+          <label for="new-admin-name">Nome do Administrador</label>
+          <input type="text" id="new-admin-name" placeholder="Ex: Felipe Admin" required>
+        </div>
+        <div class="form-group">
+          <label for="new-admin-phone">Telefone (DDD + Número)</label>
+          <input type="text" id="new-admin-phone" placeholder="Ex: 49999459490" required>
+        </div>
+        <div class="form-group">
+          <label for="new-admin-password">Senha de Acesso</label>
+          <input type="password" id="new-admin-password" placeholder="Defina uma senha" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-add-admin')">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: var(--color-green);">Cadastrar Administrador <i class="fa-solid fa-circle-check"></i></button>
         </div>
       </form>
     </div>

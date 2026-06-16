@@ -47,6 +47,57 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+// Envio de Notificações WhatsApp (SaaS local hospedado)
+const https = require('https');
+const ADMIN_PHONE = '49999459490';
+const MASTER_KEY = 'test_key_master_123';
+
+function sendNotification(to, message) {
+  if (!to) {
+    console.log('Sem destinatário para envio de notificação.');
+    return;
+  }
+  
+  const cleanPhone = to.replace(/\D/g, '');
+  if (cleanPhone.length < 10) {
+    console.log(`Número de telefone inválido para envio: ${cleanPhone}`);
+    return;
+  }
+
+  const payload = JSON.stringify({
+    to: cleanPhone,
+    message: message,
+    force: true
+  });
+
+  const options = {
+    hostname: 'mensagens.techinteligente.site',
+    port: 443,
+    path: '/api/v1/send',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${MASTER_KEY}`,
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+
+  const req = https.request(options, (res) => {
+    let body = '';
+    res.on('data', (chunk) => body += chunk);
+    res.on('end', () => {
+      console.log(`Notificação enviada para ${cleanPhone}. Status: ${res.statusCode}.`);
+    });
+  });
+
+  req.on('error', (e) => {
+    console.error(`Erro ao enviar notificação para ${cleanPhone}:`, e);
+  });
+
+  req.write(payload);
+  req.end();
+}
+
 // Criar Tabelas
 db.serialize(() => {
   // Tabela de Projetos
@@ -57,9 +108,18 @@ db.serialize(() => {
     )
   `);
 
+  // Tabela de Usuários
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT DEFAULT 'client'
+    )
+  `);
+
   // Tabela de Solicitações (Tickets)
-  // Status possíveis: 'Pendente', 'Em Análise', 'Aprovado', 'Em Andamento', 'Concluído'
-  // Orçamento (budget_status): 'Nenhum', 'Pendente de Aprovação', 'Aprovado', 'Recusado'
   db.run(`
     CREATE TABLE IF NOT EXISTS tickets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,12 +129,18 @@ db.serialize(() => {
       status TEXT DEFAULT 'Pendente',
       project_id INTEGER,
       client_name TEXT NOT NULL,
+      client_phone TEXT,
       budget_amount REAL DEFAULT 0,
       budget_status TEXT DEFAULT 'Nenhum',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )
   `);
+
+  // Adicionar coluna client_phone se ela não existir
+  db.run("ALTER TABLE tickets ADD COLUMN client_phone TEXT", (err) => {
+    // Ignora silenciosamente se a coluna já existe
+  });
 
   // Tabela de Anexos
   db.run(`
@@ -97,27 +163,107 @@ db.serialize(() => {
       console.log('Projetos iniciais inseridos com sucesso.');
     }
   });
+
+  // Inserir usuário Admin padrão se não houver admin cadastrado
+  db.get('SELECT COUNT(*) as count FROM users WHERE role = "admin"', [], (err, row) => {
+    if (row && row.count === 0) {
+      db.run('INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)', [
+        'Administrador',
+        'admin',
+        'admin123',
+        'admin'
+      ]);
+      console.log('Usuário administrador padrão inserido.');
+    }
+  });
 });
 
 // --- ROTAS DA API ---
 
-// 1. Autenticação Simples
-app.post('/api/auth/login', (req, res) => {
-  const { password, clientName } = req.body;
+// 1. Registro de Cliente
+app.post('/api/auth/register', (req, res) => {
+  const { name, phone, password } = req.body;
 
-  if (password === 'admin123') {
-    return res.json({ success: true, role: 'admin', clientName: 'Administrador', token: 'token-admin-session' });
-  } else if (password === 'cliente123') {
-    if (!clientName || clientName.trim() === '') {
-      return res.status(400).json({ success: false, message: 'Por favor, identifique-se informando seu nome.' });
-    }
-    return res.json({ success: true, role: 'client', clientName: clientName.trim(), token: 'token-client-' + Date.now() });
-  } else {
-    return res.status(401).json({ success: false, message: 'Senha incorreta.' });
+  if (!name || !phone || !password) {
+    return res.status(400).json({ success: false, message: 'Nome, telefone e senha são obrigatórios.' });
   }
+
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length < 10) {
+    return res.status(400).json({ success: false, message: 'Por favor, insira um telefone válido com DDD.' });
+  }
+
+  db.run(
+    'INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, "client")',
+    [name.trim(), cleanPhone, password],
+    function (err) {
+      if (err) {
+        if (err.message.includes('UNIQUE')) {
+          return res.status(400).json({ success: false, message: 'Este número de telefone já está cadastrado.' });
+        }
+        return res.status(500).json({ success: false, message: err.message });
+      }
+
+      const userId = this.lastID;
+      
+      // Notificar cliente sobre o cadastro
+      sendNotification(cleanPhone, `Olá, ${name.trim()}! Seu cadastro no Help Desk foi realizado com sucesso. Agora você pode abrir e acompanhar suas solicitações.`);
+
+      res.json({
+        success: true,
+        role: 'client',
+        clientName: name.trim(),
+        clientPhone: cleanPhone,
+        token: 'token-client-' + userId + '-' + Date.now()
+      });
+    }
+  );
 });
 
-// 2. Projetos
+// 2. Login
+app.post('/api/auth/login', (req, res) => {
+  const { phone, password } = req.body;
+
+  if (!phone || !password) {
+    return res.status(400).json({ success: false, message: 'Telefone/Usuário e senha são obrigatórios.' });
+  }
+
+  const cleanPhone = phone.trim().toLowerCase();
+
+  // Login direto para Admin
+  if (cleanPhone === 'admin' && password === 'admin123') {
+    return res.json({
+      success: true,
+      role: 'admin',
+      clientName: 'Administrador',
+      clientPhone: '',
+      token: 'token-admin-session'
+    });
+  }
+
+  // Buscar usuário no banco
+  db.get(
+    'SELECT * FROM users WHERE phone = ? AND password = ?',
+    [cleanPhone.replace(/\D/g, ''), password],
+    (err, user) => {
+      if (err) return res.status(500).json({ success: false, message: err.message });
+
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Telefone ou senha incorretos.' });
+      }
+
+      res.json({
+        success: true,
+        role: user.role,
+        clientName: user.name,
+        clientPhone: user.phone,
+        token: 'token-' + user.role + '-' + user.id + '-' + Date.now()
+      });
+    }
+  );
+});
+
+// 3. Projetos
 app.get('/api/projects', (req, res) => {
   db.all('SELECT * FROM projects ORDER BY name ASC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -141,7 +287,7 @@ app.post('/api/projects', (req, res) => {
   });
 });
 
-// 3. Solicitações (Tickets)
+// 4. Solicitações (Tickets)
 app.get('/api/tickets', (req, res) => {
   const { project_id } = req.query;
 
@@ -176,18 +322,18 @@ app.get('/api/tickets', (req, res) => {
 });
 
 app.post('/api/tickets', upload.array('files'), (req, res) => {
-  const { title, description, priority, project_id, client_name } = req.body;
+  const { title, description, priority, project_id, client_name, client_phone } = req.body;
 
   if (!title || !project_id || !client_name) {
     return res.status(400).json({ error: 'Título, projeto e nome do cliente são obrigatórios.' });
   }
 
   const query = `
-    INSERT INTO tickets (title, description, priority, status, project_id, client_name)
-    VALUES (?, ?, ?, 'Pendente', ?, ?)
+    INSERT INTO tickets (title, description, priority, status, project_id, client_name, client_phone)
+    VALUES (?, ?, ?, 'Pendente', ?, ?, ?)
   `;
 
-  db.run(query, [title, description, priority || 'Média', project_id, client_name], function(err) {
+  db.run(query, [title, description, priority || 'Média', project_id, client_name, client_phone || null], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     
     const ticketId = this.lastID;
@@ -208,6 +354,14 @@ app.post('/api/tickets', upload.array('files'), (req, res) => {
       fileInsertStmt.finalize();
     }
 
+    // Gerar link para o ticket
+    const host = req.headers.host;
+    const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';
+    const link = `${protocol}://${host}/#ticket-${ticketId}`;
+
+    // Notificar administrador
+    sendNotification(ADMIN_PHONE, `📢 *Nova Solicitação*\n\n*Cliente:* ${client_name}\n*Título:* ${title}\n*Prioridade:* ${priority || 'Média'}\n\nAcessar: ${link}`);
+
     res.json({ success: true, ticketId });
   });
 });
@@ -217,9 +371,26 @@ app.put('/api/tickets/:id/status', (req, res) => {
   const { id } = req.params;
   const { status } = req.body; // 'Pendente', 'Em Análise', 'Aprovado', 'Em Andamento', 'Concluído'
 
-  db.run('UPDATE tickets SET status = ? WHERE id = ?', [status, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true, changes: this.changes });
+  // Buscar informações do ticket para enviar notificação
+  db.get('SELECT * FROM tickets WHERE id = ?', [id], (err, ticket) => {
+    if (err || !ticket) {
+      return res.status(404).json({ error: 'Chamado não encontrado.' });
+    }
+
+    db.run('UPDATE tickets SET status = ? WHERE id = ?', [status, id], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+
+      const host = req.headers.host;
+      const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';
+      const link = `${protocol}://${host}/#ticket-${id}`;
+
+      // Notificar cliente
+      if (ticket.client_phone) {
+        sendNotification(ticket.client_phone, `🛠️ *Atualização de Status*\n\nSua solicitação "*${ticket.title}*" foi atualizada para o status: *${status}*.\n\nAcompanhe aqui: ${link}`);
+      }
+
+      res.json({ success: true, changes: this.changes });
+    });
   });
 });
 
@@ -232,15 +403,30 @@ app.put('/api/tickets/:id/budget', (req, res) => {
     return res.status(400).json({ error: 'Valor do orçamento inválido.' });
   }
 
-  // Define o valor e altera status do orçamento para "Pendente de Aprovação" e status do chamado para "Aguardando Valor"
-  db.run(
-    'UPDATE tickets SET budget_amount = ?, budget_status = "Pendente de Aprovação" WHERE id = ?',
-    [budget_amount, id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true, changes: this.changes });
+  db.get('SELECT * FROM tickets WHERE id = ?', [id], (err, ticket) => {
+    if (err || !ticket) {
+      return res.status(404).json({ error: 'Chamado não encontrado.' });
     }
-  );
+
+    db.run(
+      'UPDATE tickets SET budget_amount = ?, budget_status = "Pendente de Aprovação" WHERE id = ?',
+      [budget_amount, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const host = req.headers.host;
+        const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';
+        const link = `${protocol}://${host}/#ticket-${id}`;
+
+        // Notificar cliente sobre orçamento pendente de aprovação
+        if (ticket.client_phone) {
+          sendNotification(ticket.client_phone, `💰 *Orçamento Disponível*\n\nUm orçamento de *R$ ${parseFloat(budget_amount).toFixed(2)}* foi cadastrado para o ajuste "*${ticket.title}*".\n\nPor favor, acesse o painel para aprovar ou recusar: ${link}`);
+        }
+
+        res.json({ success: true, changes: this.changes });
+      }
+    );
+  });
 });
 
 // Aprovar/Recusar Orçamento (Cliente)
@@ -252,17 +438,31 @@ app.put('/api/tickets/:id/approve-budget', (req, res) => {
     return res.status(400).json({ error: 'Ação inválida. Escolha Aprovado ou Recusado.' });
   }
 
-  // Se for aprovado, muda o status do chamado para "Em Andamento"
   const ticketStatus = action === 'Aprovado' ? 'Em Andamento' : 'Pendente';
 
-  db.run(
-    'UPDATE tickets SET budget_status = ?, status = ? WHERE id = ?',
-    [action, ticketStatus, id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true, changes: this.changes });
+  db.get('SELECT * FROM tickets WHERE id = ?', [id], (err, ticket) => {
+    if (err || !ticket) {
+      return res.status(404).json({ error: 'Chamado não encontrado.' });
     }
-  );
+
+    db.run(
+      'UPDATE tickets SET budget_status = ?, status = ? WHERE id = ?',
+      [action, ticketStatus, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const host = req.headers.host;
+        const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';
+        const link = `${protocol}://${host}/#ticket-${id}`;
+
+        // Notificar administrador sobre a resposta do orçamento
+        const statusEmoji = action === 'Aprovado' ? '✅' : '❌';
+        sendNotification(ADMIN_PHONE, `${statusEmoji} *Orçamento ${action}*\n\nO cliente ${ticket.client_name} *${action.toLowerCase()}* o orçamento de *R$ ${parseFloat(ticket.budget_amount).toFixed(2)}* para a solicitação "*${ticket.title}*".\n\nAcesse para ver: ${link}`);
+
+        res.json({ success: true, changes: this.changes });
+      }
+    );
+  });
 });
 
 // Inicialização

@@ -2,7 +2,8 @@
 let currentUser = {
   token: localStorage.getItem('helpdesk_token') || null,
   role: localStorage.getItem('helpdesk_role') || null,
-  clientName: localStorage.getItem('helpdesk_clientName') || null
+  clientName: localStorage.getItem('helpdesk_clientName') || null,
+  clientPhone: localStorage.getItem('helpdesk_clientPhone') || null
 };
 
 let projects = [];
@@ -19,10 +20,27 @@ const API_BASE = window.location.origin;
 document.addEventListener('DOMContentLoaded', () => {
   if (currentUser.token) {
     showAppScreen();
+    checkUrlForTicket();
   } else {
     showLoginScreen();
   }
 });
+
+function checkUrlForTicket() {
+  const hash = window.location.hash;
+  if (hash && hash.startsWith('#ticket-')) {
+    const ticketId = parseInt(hash.replace('#ticket-', ''), 10);
+    if (!isNaN(ticketId)) {
+      const checkInterval = setInterval(() => {
+        if (tickets && tickets.length > 0) {
+          clearInterval(checkInterval);
+          openTicketDetails(ticketId);
+        }
+      }, 200);
+      setTimeout(() => clearInterval(checkInterval), 5000);
+    }
+  }
+}
 
 // --- CONTROLE DE TELAS (LOGIN / APP) ---
 function showLoginScreen() {
@@ -54,19 +72,55 @@ function showAppScreen() {
 function switchLoginTab(role) {
   const tabClient = document.getElementById('tab-client');
   const tabAdmin = document.getElementById('tab-admin');
-  const clientNameGroup = document.getElementById('client-name-group');
-  const loginNameInput = document.getElementById('login-name');
+  const phoneLabel = document.getElementById('phone-label');
+  const phoneInput = document.getElementById('login-phone');
+  const phoneIcon = document.getElementById('login-phone-icon');
+  const linkToRegister = document.getElementById('link-to-register');
+
+  // Voltar para tela de login caso esteja na de cadastro
+  toggleAuthMode('login');
 
   if (role === 'client') {
     tabClient.classList.add('active');
     tabAdmin.classList.remove('active');
-    clientNameGroup.classList.remove('hidden');
-    loginNameInput.setAttribute('required', 'required');
+    phoneLabel.innerText = 'Telefone (DDD + Número)';
+    phoneInput.placeholder = 'Ex: 47999999999';
+    phoneInput.value = '';
+    phoneIcon.className = 'fa-solid fa-phone input-icon';
+    linkToRegister.classList.remove('hidden');
   } else {
     tabClient.classList.remove('active');
     tabAdmin.classList.add('active');
-    clientNameGroup.classList.add('hidden');
-    loginNameInput.removeAttribute('required');
+    phoneLabel.innerText = 'Usuário do Administrador';
+    phoneInput.placeholder = 'Digite "admin"';
+    phoneInput.value = '';
+    phoneIcon.className = 'fa-solid fa-user input-icon';
+    linkToRegister.classList.add('hidden');
+  }
+}
+
+// Alternar entre Login e Cadastro
+function toggleAuthMode(mode) {
+  const loginForm = document.getElementById('login-form');
+  const registerForm = document.getElementById('register-form');
+  const authSubtitle = document.getElementById('auth-subtitle');
+  const authTabs = document.getElementById('auth-tabs');
+  const errorDivLogin = document.getElementById('login-error');
+  const errorDivRegister = document.getElementById('register-error');
+
+  errorDivLogin.classList.add('hidden');
+  errorDivRegister.classList.add('hidden');
+
+  if (mode === 'register') {
+    loginForm.classList.add('hidden');
+    registerForm.classList.remove('hidden');
+    authSubtitle.innerText = 'Crie sua conta para enviar e gerenciar solicitações';
+    authTabs.classList.add('hidden');
+  } else {
+    loginForm.classList.remove('hidden');
+    registerForm.classList.add('hidden');
+    authSubtitle.innerText = 'Acesse a central de suporte e solicitações';
+    authTabs.classList.remove('hidden');
   }
 }
 
@@ -77,7 +131,7 @@ async function handleLogin(event) {
   errorDiv.classList.add('hidden');
 
   const isAdmin = document.getElementById('tab-admin').classList.contains('active');
-  const clientName = document.getElementById('login-name').value;
+  const phone = document.getElementById('login-phone').value;
   const password = document.getElementById('login-password').value;
 
   try {
@@ -85,8 +139,8 @@ async function handleLogin(event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        password,
-        clientName: isAdmin ? 'Administrador' : clientName
+        phone: isAdmin ? 'admin' : phone,
+        password
       })
     });
 
@@ -100,14 +154,62 @@ async function handleLogin(event) {
     currentUser.token = data.token;
     currentUser.role = data.role;
     currentUser.clientName = data.clientName;
+    currentUser.clientPhone = data.clientPhone || '';
 
     localStorage.setItem('helpdesk_token', data.token);
     localStorage.setItem('helpdesk_role', data.role);
     localStorage.setItem('helpdesk_clientName', data.clientName);
+    localStorage.setItem('helpdesk_clientPhone', data.clientPhone || '');
 
     // Limpar formulário de login
-    document.getElementById('login-name').value = '';
+    document.getElementById('login-phone').value = '';
     document.getElementById('login-password').value = '';
+
+    showAppScreen();
+  } catch (err) {
+    errorDiv.innerText = err.message;
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+// Ação de Cadastro
+async function handleRegister(event) {
+  event.preventDefault();
+  const errorDiv = document.getElementById('register-error');
+  errorDiv.classList.add('hidden');
+
+  const name = document.getElementById('reg-name').value;
+  const phone = document.getElementById('reg-phone').value;
+  const password = document.getElementById('reg-password').value;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Erro ao criar conta.');
+    }
+
+    // Após cadastro, fazer login automático
+    currentUser.token = data.token;
+    currentUser.role = data.role;
+    currentUser.clientName = data.clientName;
+    currentUser.clientPhone = data.clientPhone || '';
+
+    localStorage.setItem('helpdesk_token', data.token);
+    localStorage.setItem('helpdesk_role', data.role);
+    localStorage.setItem('helpdesk_clientName', data.clientName);
+    localStorage.setItem('helpdesk_clientPhone', data.clientPhone || '');
+
+    // Limpar formulário de cadastro
+    document.getElementById('reg-name').value = '';
+    document.getElementById('reg-phone').value = '';
+    document.getElementById('reg-password').value = '';
 
     showAppScreen();
   } catch (err) {
@@ -118,10 +220,11 @@ async function handleLogin(event) {
 
 // Ação de Logout
 function handleLogout() {
-  currentUser = { token: null, role: null, clientName: null };
+  currentUser = { token: null, role: null, clientName: null, clientPhone: null };
   localStorage.removeItem('helpdesk_token');
   localStorage.removeItem('helpdesk_role');
   localStorage.removeItem('helpdesk_clientName');
+  localStorage.removeItem('helpdesk_clientPhone');
   showLoginScreen();
 }
 
@@ -437,6 +540,7 @@ async function submitTicket(event) {
   formData.append('priority', priority);
   formData.append('description', description);
   formData.append('client_name', currentUser.clientName);
+  formData.append('client_phone', currentUser.clientPhone || '');
 
   selectedFiles.forEach(file => {
     formData.append('files', file);

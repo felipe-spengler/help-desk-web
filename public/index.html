@@ -19,21 +19,21 @@
       <div class="login-header">
         <i class="fa-solid fa-headset brand-icon"></i>
         <h1>Help Desk</h1>
-        <p>Acesse a central de suporte e solicitações</p>
+        <p id="auth-subtitle">Acesse a central de suporte e solicitações</p>
       </div>
 
-      <div class="login-tabs">
+      <div class="login-tabs" id="auth-tabs">
         <button id="tab-client" class="login-tab active" onclick="switchLoginTab('client')">Cliente</button>
         <button id="tab-admin" class="login-tab" onclick="switchLoginTab('admin')">Administrador</button>
       </div>
 
+      <!-- Formulário de Login -->
       <form id="login-form" onsubmit="handleLogin(event)">
-        <!-- Campo Nome (Apenas para clientes) -->
-        <div class="form-group" id="client-name-group">
-          <label for="login-name">Seu Nome / Empresa</label>
+        <div class="form-group" id="login-phone-group">
+          <label for="login-phone" id="phone-label">Telefone / Usuário</label>
           <div class="input-icon-wrapper">
-            <i class="fa-regular fa-user input-icon"></i>
-            <input type="text" id="login-name" placeholder="Ex: Felipe - App Esportivo">
+            <i class="fa-solid fa-phone input-icon" id="login-phone-icon"></i>
+            <input type="text" id="login-phone" placeholder="Ex: 47999999999" required>
           </div>
         </div>
 
@@ -50,6 +50,47 @@
         <button type="submit" class="btn-primary btn-block">
           Entrar no Painel <i class="fa-solid fa-arrow-right-to-bracket icon-right"></i>
         </button>
+
+        <div class="auth-toggle-link" id="link-to-register">
+          Não tem uma conta? <a href="#" onclick="toggleAuthMode('register')">Cadastre-se</a>
+        </div>
+      </form>
+
+      <!-- Formulário de Cadastro (Escondido por padrão) -->
+      <form id="register-form" class="hidden" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="reg-name">Seu Nome / Empresa</label>
+          <div class="input-icon-wrapper">
+            <i class="fa-regular fa-user input-icon"></i>
+            <input type="text" id="reg-name" placeholder="Ex: Felipe - App Esportivo" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="reg-phone">Telefone (DDD + Número)</label>
+          <div class="input-icon-wrapper">
+            <i class="fa-solid fa-phone input-icon"></i>
+            <input type="text" id="reg-phone" placeholder="Ex: 47999999999" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="reg-password">Senha de Acesso</label>
+          <div class="input-icon-wrapper">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="reg-password" placeholder="Crie uma senha" required>
+          </div>
+        </div>
+
+        <div id="register-error" class="error-message hidden"></div>
+
+        <button type="submit" class="btn-primary btn-block" style="background: var(--color-green);">
+          Criar Conta <i class="fa-solid fa-user-plus icon-right"></i>
+        </button>
+
+        <div class="auth-toggle-link">
+          Já tem uma conta? <a href="#" onclick="toggleAuthMode('login')">Fazer Login</a>
+        </div>
       </form>
     </div>
   </div>

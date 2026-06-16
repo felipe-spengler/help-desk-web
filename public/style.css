@@ -1125,3 +1125,21 @@ textarea:focus {
     font-size: 1rem;
   }
 }
+
+/* Auth Toggle Links */
+.auth-toggle-link {
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.auth-toggle-link a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: var(--transition);
+}
+.auth-toggle-link a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+

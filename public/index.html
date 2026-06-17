@@ -328,6 +328,16 @@
           </div>
         </div>
 
+        <!-- Galeria de Conclusão / Resultado -->
+        <div class="ticket-attachments-section hidden" id="view-conclusion-attachments-container" style="background: rgba(46, 213, 115, 0.05); border: 1px solid rgba(46, 213, 115, 0.2); padding: 15px; border-radius: var(--radius-md); margin-top: 15px;">
+          <h4 style="color: var(--color-green); display: flex; align-items: center; gap: 8px; margin-top: 0; margin-bottom: 10px;">
+            <i class="fa-solid fa-circle-check"></i> Resultado da Conclusão (Como ficou):
+          </h4>
+          <div class="attachments-grid" id="conclusion-attachments-gallery">
+            <!-- Anexos de conclusão renderizados aqui -->
+          </div>
+        </div>
+
         <!-- Seção de Orçamento / Cobrança extra -->
         <div class="budget-section glass-panel hidden" id="view-budget-container">
           <div class="budget-info">
@@ -365,6 +375,23 @@
                 <option value="Em Andamento">Em Andamento / Aprovada</option>
                 <option value="Concluído">Concluída / Realizada</option>
               </select>
+            </div>
+
+            <!-- Área de Upload para Conclusão -->
+            <div class="form-group hidden" id="admin-conclusion-upload-group" style="grid-column: 1 / -1; margin-top: 10px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+              <label style="color: var(--color-green); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-camera"></i> Anexar fotos/vídeos da Conclusão (Como ficou):
+              </label>
+              <div class="upload-dropzone" onclick="document.getElementById('admin-conclusion-files').click()" style="padding: 15px; border-style: dashed; margin-top: 8px;">
+                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; margin-bottom: 5px;"></i>
+                <p style="font-size: 0.85rem; margin: 0;">Clique para selecionar ou arrastar fotos/vídeos de conclusão</p>
+                <input type="file" id="admin-conclusion-files" multiple accept="image/*,video/*" class="hidden" onchange="handleConclusionFileSelect(event)">
+              </div>
+              <div class="selected-files-list" id="admin-conclusion-files-preview" style="margin-top: 8px;"></div>
+              
+              <button type="button" class="btn-primary" id="btn-save-conclusion-status" onclick="saveConclusionStatus()" style="background: var(--color-green); margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 40px; font-weight: 600;">
+                Salvar Alterações com Fotos/Vídeos <i class="fa-solid fa-circle-check"></i>
+              </button>
             </div>
 
             <div class="form-group">

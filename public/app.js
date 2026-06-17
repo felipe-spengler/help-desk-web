@@ -12,6 +12,7 @@ let activeProjectId = 'all'; // 'all' ou ID numérico
 let currentStatusFilter = 'all'; // Filtro de status rápido do dashboard
 let currentPriorityFilter = 'all'; // Filtro de prioridade
 let selectedFiles = []; // Armazena arquivos temporários do formulário de envio
+let selectedConclusionFiles = []; // Armazena arquivos temporários de conclusão
 let currentViewingTicket = null;
 
 const API_BASE = window.location.origin;
@@ -745,30 +746,66 @@ function renderAttachments(attachments) {
   const gallery = document.getElementById('attachments-gallery');
   gallery.innerHTML = '';
 
+  const conclusionContainer = document.getElementById('view-conclusion-attachments-container');
+  const conclusionGallery = document.getElementById('conclusion-attachments-gallery');
+  conclusionGallery.innerHTML = '';
+
   if (!attachments || attachments.length === 0) {
     container.classList.add('hidden');
+    conclusionContainer.classList.add('hidden');
     return;
   }
 
-  container.classList.remove('hidden');
+  // Filtrar anexos iniciais e de conclusão
+  const initialAttachments = attachments.filter(file => !file.is_conclusion || file.is_conclusion == 0);
+  const conclusionAttachments = attachments.filter(file => file.is_conclusion == 1);
 
-  attachments.forEach(file => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'attachment-media-wrapper';
+  // Renderizar iniciais
+  if (initialAttachments.length === 0) {
+    container.classList.add('hidden');
+  } else {
+    container.classList.remove('hidden');
+    initialAttachments.forEach(file => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'attachment-media-wrapper';
 
-    if (file.filetype === 'video') {
-      wrapper.innerHTML = `
-        <video src="${API_BASE}${file.filepath}"></video>
-        <div class="attachment-video-overlay"><i class="fa-solid fa-play"></i></div>
-      `;
-      wrapper.onclick = () => openFullscreenMedia(file.filepath, 'video');
-    } else {
-      wrapper.innerHTML = `<img src="${API_BASE}${file.filepath}" alt="${file.filename}">`;
-      wrapper.onclick = () => openFullscreenMedia(file.filepath, 'image');
-    }
+      if (file.filetype === 'video') {
+        wrapper.innerHTML = `
+          <video src="${API_BASE}${file.filepath}"></video>
+          <div class="attachment-video-overlay"><i class="fa-solid fa-play"></i></div>
+        `;
+        wrapper.onclick = () => openFullscreenMedia(file.filepath, 'video');
+      } else {
+        wrapper.innerHTML = `<img src="${API_BASE}${file.filepath}" alt="${file.filename}">`;
+        wrapper.onclick = () => openFullscreenMedia(file.filepath, 'image');
+      }
+      gallery.appendChild(wrapper);
+    });
+  }
 
-    gallery.appendChild(wrapper);
-  });
+  // Renderizar conclusão
+  if (conclusionAttachments.length === 0) {
+    conclusionContainer.classList.add('hidden');
+  } else {
+    conclusionContainer.classList.remove('hidden');
+    conclusionAttachments.forEach(file => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'attachment-media-wrapper';
+      wrapper.style.borderColor = 'var(--color-green)';
+
+      if (file.filetype === 'video') {
+        wrapper.innerHTML = `
+          <video src="${API_BASE}${file.filepath}"></video>
+          <div class="attachment-video-overlay"><i class="fa-solid fa-play"></i></div>
+        `;
+        wrapper.onclick = () => openFullscreenMedia(file.filepath, 'video');
+      } else {
+        wrapper.innerHTML = `<img src="${API_BASE}${file.filepath}" alt="${file.filename}">`;
+        wrapper.onclick = () => openFullscreenMedia(file.filepath, 'image');
+      }
+      conclusionGallery.appendChild(wrapper);
+    });
+  }
 }
 
 // Zoom e visualização em tela cheia do anexo
@@ -847,12 +884,22 @@ function renderBudgetSection(ticket) {
 // Controles Administrativos
 function renderAdminControls(ticket) {
   const container = document.getElementById('admin-controls-container');
+  const uploadGroup = document.getElementById('admin-conclusion-upload-group');
   if (currentUser.role === 'admin') {
     container.classList.remove('hidden');
     document.getElementById('admin-change-status').value = ticket.status;
     document.getElementById('admin-budget-input').value = ticket.budget_amount || '';
+    
+    if (ticket.status === 'Concluído') {
+      uploadGroup.classList.remove('hidden');
+      selectedConclusionFiles = [];
+      renderSelectedConclusionFiles();
+    } else {
+      uploadGroup.classList.add('hidden');
+    }
   } else {
     container.classList.add('hidden');
+    uploadGroup.classList.add('hidden');
   }
 }
 
@@ -860,6 +907,16 @@ function renderAdminControls(ticket) {
 async function adminChangeStatus(event) {
   if (!currentViewingTicket) return;
   const status = event.target.value;
+  const uploadGroup = document.getElementById('admin-conclusion-upload-group');
+
+  if (status === 'Concluído') {
+    uploadGroup.classList.remove('hidden');
+    selectedConclusionFiles = [];
+    renderSelectedConclusionFiles();
+    return; // Don't save immediately, wait for user to click button to attach files
+  } else {
+    uploadGroup.classList.add('hidden');
+  }
 
   try {
     const response = await fetch(`${API_BASE}/api/tickets/${currentViewingTicket.id}/status`, {
@@ -875,6 +932,64 @@ async function adminChangeStatus(event) {
     document.getElementById('view-ticket-status-badge').innerText = status;
     document.getElementById('view-ticket-status-badge').className = `badge-status ${status.replace(' ', '-')}`;
     
+    fetchTickets();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function handleConclusionFileSelect(event) {
+  const files = Array.from(event.target.files);
+  selectedConclusionFiles = selectedConclusionFiles.concat(files);
+  renderSelectedConclusionFiles();
+}
+
+function renderSelectedConclusionFiles() {
+  const container = document.getElementById('admin-conclusion-files-preview');
+  container.innerHTML = '';
+
+  selectedConclusionFiles.forEach((file, index) => {
+    const item = document.createElement('div');
+    item.className = 'file-preview-item';
+    item.innerHTML = `
+      <span><i class="fa-regular fa-file-image"></i> ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+      <button type="button" onclick="removeSelectedConclusionFile(${index})"><i class="fa-solid fa-trash"></i></button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function removeSelectedConclusionFile(index) {
+  selectedConclusionFiles.splice(index, 1);
+  renderSelectedConclusionFiles();
+}
+
+async function saveConclusionStatus() {
+  if (!currentViewingTicket) return;
+  const status = 'Concluído';
+
+  const formData = new FormData();
+  formData.append('status', status);
+  formData.append('admin_name', currentUser.clientName);
+  selectedConclusionFiles.forEach(file => {
+    formData.append('files', file);
+  });
+
+  try {
+    const response = await fetch(`${API_BASE}/api/tickets/${currentViewingTicket.id}/status`, {
+      method: 'PUT',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Erro ao concluir chamado.');
+    }
+
+    alert('Chamado concluído com sucesso!');
+    selectedConclusionFiles = [];
+    document.getElementById('admin-conclusion-files-preview').innerHTML = '';
+    closeModal('modal-view-ticket');
     fetchTickets();
   } catch (err) {
     alert(err.message);

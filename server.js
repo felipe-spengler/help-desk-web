@@ -231,6 +231,11 @@ db.serialize(() => {
     )
   `);
 
+  // Adicionar coluna is_conclusion se ela não existir
+  db.run("ALTER TABLE attachments ADD COLUMN is_conclusion INTEGER DEFAULT 0", (err) => {
+    // Ignora silenciosamente se a coluna já existe
+  });
+
   // Inserir projetos de demonstração iniciais caso a tabela esteja vazia
   db.get('SELECT COUNT(*) as count FROM projects', [], (err, row) => {
     if (row && row.count === 0) {
@@ -467,7 +472,7 @@ app.get('/api/tickets', (req, res) => {
 
   let query = `
     SELECT t.*, p.name as project_name, 
-           (SELECT json_group_array(json_object('id', a.id, 'filename', a.filename, 'filepath', a.filepath, 'filetype', a.filetype))
+           (SELECT json_group_array(json_object('id', a.id, 'filename', a.filename, 'filepath', a.filepath, 'filetype', a.filetype, 'is_conclusion', COALESCE(a.is_conclusion, 0)))
             FROM attachments a WHERE a.ticket_id = t.id) as attachments_json
     FROM tickets t
     LEFT JOIN projects p ON t.project_id = p.id
@@ -547,7 +552,7 @@ app.post('/api/tickets', upload.array('files'), (req, res) => {
 });
 
 // Atualizar Status (Admin)
-app.put('/api/tickets/:id/status', (req, res) => {
+app.put('/api/tickets/:id/status', upload.array('files'), (req, res) => {
   const { id } = req.params;
   const { status, admin_name } = req.body; // 'Pendente', 'Em Análise', 'Aprovado', 'Em Andamento', 'Concluído'
 
@@ -559,6 +564,22 @@ app.put('/api/tickets/:id/status', (req, res) => {
 
     db.run('UPDATE tickets SET status = ? WHERE id = ?', [status, id], function(err) {
       if (err) return res.status(500).json({ error: err.message });
+
+      // Processar arquivos se existirem e o status for 'Concluído'
+      if (status === 'Concluído' && req.files && req.files.length > 0) {
+        const fileInsertStmt = db.prepare(`
+          INSERT INTO attachments (ticket_id, filename, filepath, filetype, is_conclusion)
+          VALUES (?, ?, ?, ?, 1)
+        `);
+
+        req.files.forEach(file => {
+          const relativePath = '/uploads/' + file.filename;
+          const filetype = file.mimetype.startsWith('video/') ? 'video' : 'image';
+          fileInsertStmt.run(id, file.originalname, relativePath, filetype);
+        });
+
+        fileInsertStmt.finalize();
+      }
 
       const host = req.headers.host;
       const protocol = req.headers.referer ? req.headers.referer.split(':')[0] : 'http';

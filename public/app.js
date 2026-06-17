@@ -784,10 +784,19 @@ function renderAttachments(attachments) {
   }
 
   // Renderizar conclusão
-  if (conclusionAttachments.length === 0) {
+  if (conclusionAttachments.length === 0 && (!currentViewingTicket || !currentViewingTicket.conclusion_comment)) {
     conclusionContainer.classList.add('hidden');
   } else {
     conclusionContainer.classList.remove('hidden');
+    
+    const commentEl = document.getElementById('view-conclusion-comment');
+    if (currentViewingTicket && currentViewingTicket.conclusion_comment) {
+      commentEl.innerText = currentViewingTicket.conclusion_comment;
+      commentEl.style.display = 'block';
+    } else {
+      commentEl.style.display = 'none';
+    }
+
     conclusionAttachments.forEach(file => {
       const wrapper = document.createElement('div');
       wrapper.className = 'attachment-media-wrapper';
@@ -892,10 +901,12 @@ function renderAdminControls(ticket) {
     
     if (ticket.status === 'Concluído') {
       uploadGroup.classList.remove('hidden');
+      document.getElementById('admin-conclusion-comment').value = ticket.conclusion_comment || '';
       selectedConclusionFiles = [];
       renderSelectedConclusionFiles();
     } else {
       uploadGroup.classList.add('hidden');
+      document.getElementById('admin-conclusion-comment').value = '';
     }
   } else {
     container.classList.add('hidden');
@@ -967,10 +978,12 @@ function removeSelectedConclusionFile(index) {
 async function saveConclusionStatus() {
   if (!currentViewingTicket) return;
   const status = 'Concluído';
+  const comment = document.getElementById('admin-conclusion-comment').value;
 
   const formData = new FormData();
   formData.append('status', status);
   formData.append('admin_name', currentUser.clientName);
+  formData.append('conclusion_comment', comment);
   selectedConclusionFiles.forEach(file => {
     formData.append('files', file);
   });

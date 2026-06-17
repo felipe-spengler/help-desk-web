@@ -236,6 +236,11 @@ db.serialize(() => {
     // Ignora silenciosamente se a coluna já existe
   });
 
+  // Adicionar coluna conclusion_comment se ela não existir
+  db.run("ALTER TABLE tickets ADD COLUMN conclusion_comment TEXT", (err) => {
+    // Ignora silenciosamente se a coluna já existe
+  });
+
   // Inserir projetos de demonstração iniciais caso a tabela esteja vazia
   db.get('SELECT COUNT(*) as count FROM projects', [], (err, row) => {
     if (row && row.count === 0) {
@@ -562,7 +567,14 @@ app.put('/api/tickets/:id/status', upload.array('files'), (req, res) => {
       return res.status(404).json({ error: 'Chamado não encontrado.' });
     }
 
-    db.run('UPDATE tickets SET status = ? WHERE id = ?', [status, id], function(err) {
+    const queryUpdate = status === 'Concluído'
+      ? 'UPDATE tickets SET status = ?, conclusion_comment = ? WHERE id = ?'
+      : 'UPDATE tickets SET status = ? WHERE id = ?';
+    const paramsUpdate = status === 'Concluído'
+      ? [status, req.body.conclusion_comment || null, id]
+      : [status, id];
+
+    db.run(queryUpdate, paramsUpdate, function(err) {
       if (err) return res.status(500).json({ error: err.message });
 
       // Processar arquivos se existirem e o status for 'Concluído'

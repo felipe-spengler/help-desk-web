@@ -167,6 +167,11 @@ textarea {
   outline: none;
 }
 
+select option {
+  background-color: #121319;
+  color: #f1f2f6;
+}
+
 .input-icon-wrapper input {
   padding-left: 45px;
 }

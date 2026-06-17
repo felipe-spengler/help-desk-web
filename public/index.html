@@ -333,6 +333,7 @@
           <h4 style="color: var(--color-green); display: flex; align-items: center; gap: 8px; margin-top: 0; margin-bottom: 10px;">
             <i class="fa-solid fa-circle-check"></i> Resultado da Conclusão (Como ficou):
           </h4>
+          <p id="view-conclusion-comment" style="font-size: 0.95rem; margin-bottom: 12px; font-style: italic; color: var(--text-main); line-height: 1.4; white-space: pre-wrap; background: rgba(0,0,0,0.2); padding: 10px; border-radius: var(--radius-sm); display: none;"></p>
           <div class="attachments-grid" id="conclusion-attachments-gallery">
             <!-- Anexos de conclusão renderizados aqui -->
           </div>
@@ -389,7 +390,13 @@
               </div>
               <div class="selected-files-list" id="admin-conclusion-files-preview" style="margin-top: 8px;"></div>
               
-              <button type="button" class="btn-primary" id="btn-save-conclusion-status" onclick="saveConclusionStatus()" style="background: var(--color-green); margin-top: 10px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 40px; font-weight: 600;">
+              <!-- Comentário de Conclusão -->
+              <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+                <label for="admin-conclusion-comment" style="color: var(--text-main); font-weight: 500;">Explicação/Comentários da Resolução:</label>
+                <textarea id="admin-conclusion-comment" rows="3" placeholder="Descreva aqui o que foi feito para resolver a solicitação... (Ex: Ajuste realizado no servidor e funcionando perfeitamente)"></textarea>
+              </div>
+              
+              <button type="button" class="btn-primary" id="btn-save-conclusion-status" onclick="saveConclusionStatus()" style="background: var(--color-green); margin-top: 15px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 40px; font-weight: 600;">
                 Salvar Alterações com Fotos/Vídeos <i class="fa-solid fa-circle-check"></i>
               </button>
             </div>
